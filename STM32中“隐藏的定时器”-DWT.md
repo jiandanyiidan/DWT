@@ -6,7 +6,37 @@
 
 DWT为Cortex中的一个“隐藏资源”，他的用途可以给下载器提供时间戳，并在固定的时间间隔将调试数据发到我们的link上面。
 
-## 综上所述
+## 工作原理
+
+它有一个32位的寄存器叫CYCCNT，它是一个向上的计数器，记录的是内核时钟运行的个数，内核时钟跳动一次，该计数器就加1，精度非常高，如果内核时钟是72M，那精度就是1/72M = 14ns，而程序的运行时间都是微秒级别的，所以14ns的精度是远远够的。
+
+最长能记录的时间为：59.65s。计算方法为2的32次方/72000000。
+
+当CYCCNT溢出之后，会清0重新开始向上计数。
+
+## 使用方法
+要实现延时的功能，总共涉及到三个寄存器：DEMCR 、DWT_CTRL、DWT_CYCCNT，分别用于开启DWT功能、开启CYCCNT及获得系统时钟计数值。
+
+### DEMCR
+想要使能DWT外设，需要由另外的内核调试寄存器DEMCR的位24控制，写1使能。
+DEMCR的地址是0xE000 EDFC
+
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20181110192323371.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2ppZWppZW1jdQ==,size_16,color_FFFFFF,t_70)
+
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20181110201757887.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2ppZWppZW1jdQ==,size_16,color_FFFFFF,t_70)
+
+### DWT_CYCCNT
+使能DWT_CYCCNT寄存器之前，先清0。
+让我们看看DWT_CYCCNT的基地址，从ARM-Cortex-M手册中可以看到其基地址是0xE000 1004，复位默认值是0，而且它的类型是可读可写的，我们往0xE000 1004这个地址写0就将DWT_CYCCNT清0了。
+
+![img](https://img-blog.csdnimg.cn/20201022093700609.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2Jvb2tzeWhheQ==,size_16,color_FFFFFF,t_70)
+
+### CYCCNTENA
+它是DWT控制寄存器的第一位，写1使能，则启用CYCCNT计数器，否则CYCCNT计数器将不会工作。
+
+![img](https://img-blog.csdnimg.cn/20201022094347219.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2Jvb2tzeWhheQ==,size_16,color_FFFFFF,t_70)
+
+### 综上所述
 
 使用DWT的CYCCNT有
 
@@ -34,7 +64,7 @@ DWT为Cortex中的一个“隐藏资源”，他的用途可以给下载器提�
 #define DWT_CYCCNT      ( *(unsigned int *)0xE0001004) //显示或设置处理器的周期计数值  
 ```
 
-## 初始化部分：
+### 初始化部分：
 
 ```c
 //DWT init
@@ -63,7 +93,7 @@ uint32_t DWT_TS_GET(void)
 }
 ```
 
-## 使用DWT延时函数
+### 使用DWT延时函数
 
 ```c
 void DWT_Delay_Ms(uint32_t time_ms)
@@ -85,7 +115,7 @@ void DWT_Delay_Ms(uint32_t time_ms)
 }
 ```
 
-## 实现测量代码运行时长
+### 实现测量代码运行时长
 
 ```c
 {
@@ -101,7 +131,7 @@ void DWT_Delay_Ms(uint32_t time_ms)
 }
 ```
 
-## 其他功能实现
+### 其他功能实现
 
 ```c
 /**
